@@ -59,7 +59,7 @@ jobs:
           docker run -v $(pwd):/kicad --entrypoint kicad-cli ghcr.io/inti-cmnb/kicad9_auto_full \
             sch export pdf --output "/kicad/${OUTPUT_DIR}/${SCHEMA_NAME_BASE}_${VERSION}.pdf" "/kicad/${SCHEMA_NAME}"    
           docker run -v $(pwd):/kicad --entrypoint kicad-cli ghcr.io/inti-cmnb/kicad9_auto_full  \
-            sch export bom --preset \
+            sch export bom --preset default \
             --output "/kicad/${OUTPUT_DIR}/${SCHEMA_NAME_BASE}_bom_${VERSION}.csv" "/kicad/${SCHEMA_NAME}"
 
       - name: Generate gerber files

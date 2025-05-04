@@ -4827,7 +4827,7 @@
 		)
 	)
 	(gr_text "${COMMENT8}\n${COMMENT9}\n${REVISION} ${ISSUE_DATE}\n"
-		(at 130.2 55 0)
+		(at 128.8 94.5 270)
 		(layer "B.SilkS" knockout)
 		(uuid "7196a6d8-7f86-48a2-aa2f-7fc900a7532b")
 		(effects
@@ -4840,7 +4840,7 @@
 		)
 	)
 	(gr_text "VIN"
-		(at 102.7 54.2 0)
+		(at 106 51.6 0)
 		(layer "B.SilkS")
 		(uuid "97bab9d9-a782-4a59-9536-640a7374a049")
 		(effects
@@ -4852,7 +4852,7 @@
 		)
 	)
 	(gr_text "GND"
-		(at 132.3 95.8 0)
+		(at 132.2 95.8 0)
 		(layer "B.SilkS")
 		(uuid "b04f3acc-e797-42d8-b7eb-794b062f500f")
 		(effects
@@ -4864,7 +4864,7 @@
 		)
 	)
 	(gr_text "GND"
-		(at 132.2 54.2 0)
+		(at 128.7 51.7 0)
 		(layer "B.SilkS")
 		(uuid "bf3cb48a-e99a-4198-8fa8-5bc2e775b6e5")
 		(effects
@@ -4876,7 +4876,7 @@
 		)
 	)
 	(gr_text "VOUT"
-		(at 102.7 95.8 0)
+		(at 106.6 98.5 0)
 		(layer "B.SilkS")
 		(uuid "bf4d5019-37c1-4145-a8b8-5f9aa78e5ed6")
 		(effects
