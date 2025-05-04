@@ -112,7 +112,20 @@
   },
   "open_jobsets": [],
   "project": {
-    "files": []
+    "files": [
+      {
+        "name": "smps-filter.kicad_sch",
+        "open": true,
+        "window": {
+          "display": 0,
+          "maximized": true,
+          "pos_x": 22,
+          "pos_y": 48,
+          "size_x": 2560,
+          "size_y": 1326
+        }
+      }
+    ]
   },
   "schematic": {
     "selection_filter": {

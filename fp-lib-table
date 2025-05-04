@@ -1,0 +1,4 @@
+(fp_lib_table
+  (version 7)
+  (lib (name "smps-filter")(type "KiCad")(uri "${KIPRJMOD}/lib/smps-filter.pretty")(options "")(descr ""))
+)
