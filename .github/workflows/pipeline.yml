@@ -1,0 +1,123 @@
+name: Run PCB tests
+
+on:
+  push:
+    branches:
+        - '**'
+    paths: 
+        - '*.kicad_pro'
+        - '*.kicad_sch'
+        - '*.kicad_pcb'
+        - 'libs/**'
+        - '.github/workflows/pipeline.yml'
+  pull_request:
+    branches: 
+        - '**' 
+
+jobs:
+  run-erc:
+    runs-on: ubuntu-latest
+    name: Electrical Rule Check
+    env:
+      OUTPUT_DIR: outputs
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Install Task
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Modify title block
+        env:
+          TITLE_BLOCK_AUTHOR: ${{ vars.PROJECT_AUTHOR }}
+          TITLE_BLOCK_REVISION: ${{ github.sha }}
+          TITLE_BLOCK_BASE_REPOSITORY: github.com/${{github.repository}}
+          TITLE_BLOCK_REPOSITORY: ${{ github.server_url }}/${{github.repository}}
+          TITLE_BLOCK_PROJECT_NAME: ${{ vars.PROJECT_NAME }}
+          TITLE_BLOCK_PROJECT_NAME_SHORT: ${{ vars.PROJECT_NAME_SHORT }}
+        run: |
+          TITLE_BLOCK_DATE=$(date +'%Y-%m-%d') \
+            python3 scripts/update_title_block.py 
+
+      - name: Run tests
+        env:
+          SCHEMA_NAME: smps-filter.kicad_sch
+        run: |
+          mkdir -p ${OUTPUT_DIR}
+          chmod -R 777 ${OUTPUT_DIR}
+          EXIT_CODE=0
+          echo "Running ERC test for \"${SCHEMA_NAME}\""
+          SCHEMA_NAME_BASE=${SCHEMA_NAME%.*}
+          docker run -v $(pwd):/kicad --entrypoint kicad-cli ghcr.io/inti-cmnb/kicad9_auto_full \
+            sch erc --output "/kicad/${OUTPUT_DIR}/${SCHEMA_NAME_BASE}.rpt" \
+            --format report --exit-code-violations --severity-error \
+            "/kicad/${SCHEMA_NAME}" || EXIT_CODE=$?
+          if [ $EXIT_CODE -ne 0 ]; then
+            echo "Error: ERC test failed for ${SCHEMA_NAME}"
+            cat "${OUTPUT_DIR}/${SCHEMA_NAME_BASE}.rpt"
+            exit $EXIT_CODE
+          fi
+
+      - name: Archive artifacts
+        if: ${{ success() }} || ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: erc_tests
+          path: ${{ env.OUTPUT_DIR }}
+        
+  run-drc:
+    runs-on: ubuntu-latest
+    name: Design Rule Check
+    env:
+      OUTPUT_DIR: outputs
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Install Task
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Modify title block
+        env:
+          TITLE_BLOCK_AUTHOR: ${{ vars.PROJECT_AUTHOR }}
+          TITLE_BLOCK_REVISION: ${{ github.sha }}
+          TITLE_BLOCK_BASE_REPOSITORY: github.com/${{github.repository}}
+          TITLE_BLOCK_REPOSITORY: ${{ github.server_url }}/${{github.repository}}
+          TITLE_BLOCK_PROJECT_NAME: ${{ vars.PROJECT_NAME }}
+          TITLE_BLOCK_PROJECT_NAME_SHORT: ${{ vars.PROJECT_NAME_SHORT }}
+        run: |
+          TITLE_BLOCK_DATE=$(date +'%Y-%m-%d') \
+            python3 scripts/update_title_block.py 
+
+      - name: Run tests
+        env:
+          PCB_NAME: smps-filter.kicad_pcb
+        run: |
+          mkdir -p ${OUTPUT_DIR}
+          chmod -R 777 ${OUTPUT_DIR}
+          EXIT_CODE=0
+          echo "Running DRC test for \"${PCB_NAME}\""
+          PCB_NAME_BASE=${PCB_NAME%.*}
+          docker run -v $(pwd):/kicad --entrypoint kicad-cli ghcr.io/inti-cmnb/kicad9_auto_full \
+            pcb drc --output "/kicad/${OUTPUT_DIR}/${PCB_NAME_BASE}.rpt" \
+            --format report --schematic-parity --exit-code-violations --severity-error \
+            "/kicad/${PCB_NAME}" || EXIT_CODE=$?
+          if [ $EXIT_CODE -ne 0 ]; then
+            echo "Error: DRC test failed for ${PCB_NAME}"
+            cat "${OUTPUT_DIR}/${PCB_NAME_BASE}.rpt"
+            exit $EXIT_CODE
+          fi
+
+      - name: Archive artifacts
+        if: ${{ success() }} || ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: drc_tests
+          path: ${{ env.OUTPUT_DIR }}
+        

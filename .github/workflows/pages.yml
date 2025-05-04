@@ -1,0 +1,69 @@
+name: Generate GitHub pages
+
+on:
+  push:
+    tags:
+        - 'v*'
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  generate-ibom:
+    runs-on: ubuntu-latest
+    name: Generate interactive BOM
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Install Task
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate project variables
+        id: project
+        run: |
+            VERSION=$(git describe --tags --abbrev=0 2>/dev/null || git rev-parse --short HEAD)
+            PROJECT_NAME_NS=$(echo "${{ vars.PROJECT_NAME }}" | tr "[:upper:]" "[:lower:]" | tr " " "_")
+            echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
+            echo "PROJECT_NAME_NS=${PROJECT_NAME_NS}" >> $GITHUB_OUTPUT
+
+      - name: Modify title block
+        env:
+            TITLE_BLOCK_AUTHOR: ${{ vars.PROJECT_AUTHOR }}
+            TITLE_BLOCK_REVISION: ${{ steps.project.outputs.VERSION }}
+            TITLE_BLOCK_BASE_REPOSITORY: github.com/${{github.repository}}
+            TITLE_BLOCK_REPOSITORY: ${{ github.server_url }}/${{github.repository}}
+            TITLE_BLOCK_PROJECT_NAME: ${{ vars.PROJECT_NAME }}
+            TITLE_BLOCK_PROJECT_NAME_SHORT: ${{ vars.PROJECT_NAME_SHORT }}
+        run: |
+            TITLE_BLOCK_DATE=$(date +'%Y-%m-%d') \
+                python3 scripts/update_title_block.py 
+
+      - uses: INTI-CMNB/KiBot@v1.8.3
+        with:
+          dir: outputs
+          config: smps-filter.kibot.yaml
+          schema: smps-filter.kicad_sch
+          board: smps-filter.kicad_pcb
+            
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+        
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: outputs
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+        

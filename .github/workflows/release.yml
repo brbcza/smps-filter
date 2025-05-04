@@ -1,0 +1,114 @@
+name: Create a release
+
+on:
+  push:
+    branches:
+      - 'master'
+      - 'devel'
+    tags:
+      - 'v*'
+    paths-ignore: 
+      - 'README.md'
+      - 'doc'
+
+jobs:
+  generate-build-artifacts:
+    runs-on: ubuntu-latest
+    name: Generate release artifacts
+    env:
+      OUTPUT_DIR: outputs
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v2
+
+      - name: Install Task
+        uses: arduino/setup-task@v2
+        with:
+          version: 3.x
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate project variables
+        id: project
+        run: |
+            VERSION=$(git describe --tags --abbrev=0 2>/dev/null || git rev-parse --short HEAD)
+            PROJECT_NAME_NS=$(echo "${{ vars.PROJECT_NAME }}" | tr "[:upper:]" "[:lower:]" | tr " " "_")
+            echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
+            echo "PROJECT_NAME_NS=${PROJECT_NAME_NS}" >> $GITHUB_OUTPUT
+
+      - name: Modify title block
+        env:
+          TITLE_BLOCK_AUTHOR: ${{ vars.PROJECT_AUTHOR }}
+          TITLE_BLOCK_REVISION: ${{ steps.project.outputs.VERSION }}
+          TITLE_BLOCK_BASE_REPOSITORY: github.com/${{github.repository}}
+          TITLE_BLOCK_REPOSITORY: ${{ github.server_url }}/${{github.repository}}
+          TITLE_BLOCK_PROJECT_NAME: ${{ vars.PROJECT_NAME }}
+          TITLE_BLOCK_PROJECT_NAME_SHORT: ${{ vars.PROJECT_NAME_SHORT }}
+        run: |
+          TITLE_BLOCK_DATE=$(date +'%Y-%m-%d') \
+            python3 scripts/update_title_block.py 
+
+      - name: Generate release documentation
+        env:
+          VERSION: ${{ steps.project.outputs.VERSION }}
+          SCHEMA_NAME: smps-filter.kicad_sch
+        run: |
+          mkdir -p ${OUTPUT_DIR}
+          chmod -R 777 ${OUTPUT_DIR}
+          echo "Generating documentation for \"${SCHEMA_NAME}\""
+          SCHEMA_NAME_BASE=${SCHEMA_NAME%.*}
+          docker run -v $(pwd):/kicad --entrypoint kicad-cli ghcr.io/inti-cmnb/kicad9_auto_full \
+            sch export pdf --output "/kicad/${OUTPUT_DIR}/${SCHEMA_NAME_BASE}_${VERSION}.pdf" "/kicad/${SCHEMA_NAME}"    
+          docker run -v $(pwd):/kicad --entrypoint kicad-cli ghcr.io/inti-cmnb/kicad9_auto_full  \
+            sch export bom --preset \
+            --output "/kicad/${OUTPUT_DIR}/${SCHEMA_NAME_BASE}_bom_${VERSION}.csv" "/kicad/${SCHEMA_NAME}"
+
+      - name: Generate gerber files
+        env:
+          FABHOUSE: jlcpcb
+          PCB_NAME: smps-filter.kicad_pcb
+          VERSION: ${{ steps.project.outputs.VERSION }}
+        run: |
+          echo "Generating gerber files for \"${PCB_NAME}\""
+          PCB_NAME_BASE=${PCB_NAME%.*}
+          docker run -v $(pwd):/kicad --entrypoint kikit ghcr.io/inti-cmnb/kicad9_auto_full \
+            fab ${FABHOUSE} --no-drc "/kicad/${PCB_NAME}" /kicad
+          mv gerbers.zip ${OUTPUT_DIR}/${PCB_NAME_BASE}_gerbers_${VERSION}.zip
+
+      - name: Archive artifacts
+        uses: actions/upload-artifact@v4
+        env:
+          NAME: ${{steps.project.outputs.PROJECT_NAME_NS}}
+          VERSION: ${{ steps.project.outputs.VERSION }}
+        with:
+          name: ${{steps.project.outputs.PROJECT_NAME_NS}}_${{ steps.project.outputs.VERSION }}
+          path: ${{ env.OUTPUT_DIR }}
+
+  create-release:
+    name: Create a release
+    runs-on: ubuntu-24.04
+    needs: generate-build-artifacts
+    if: startsWith(github.event.ref, 'refs/tags/v')
+    permissions: write-all
+    env:
+      OUTPUT_DIR: outputs
+    steps:    
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ${{ env.OUTPUT_DIR }}
+          merge-multiple: true
+
+      - name: Create a release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PROJECT_NAME: ${{ vars.PROJECT_NAME }}
+          PROJECT_TAG: ${{ github.ref_name }}
+        working-directory: ${{ env.OUTPUT_DIR }}
+        run: |
+            gh release create "${PROJECT_TAG}" $(ls) \
+            --title "${PROJECT_NAME} ${PROJECT_TAG}" \
+            --draft \
+            --generate-notes

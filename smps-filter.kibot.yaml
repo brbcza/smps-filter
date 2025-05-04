@@ -1,0 +1,13 @@
+kibot:
+  version: 1
+
+global:
+  date_time_format: '%Y_%m_%d'
+  output: '%f_%i.%x'
+
+outputs:
+  - name: ibom
+    comment: 'Interactive BOM'
+    type: ibom
+    options:
+      dark_mode: true
